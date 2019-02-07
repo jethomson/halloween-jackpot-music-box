@@ -1,0 +1,69 @@
+# Make file for 20-pin SD Sound Generator (Mono-OCL output)
+
+PROJECT    = sdsg_mo
+CSRC       = main.c pff.c mmc.c
+ASRC       = asmfunc.S
+MCU_TARGET = attiny861
+OPTIMIZE   = -Os -mcall-prologues
+WARNING	   = -Wall -Wextra
+INCDIRS	   = -I.
+DEFS       = -DF_CPU=16000000UL -DMODE=0
+LIBS       =
+DEBUG      = dwarf-2
+
+
+COBJ       = $(CSRC:.c=.o)
+AOBJ       = $(ASRC:.S=.o)
+
+ASFLAGS    += -mmcu=$(MCU_TARGET) $(DEFS) -I. -x assembler-with-cpp
+CFLAGS     += -mmcu=$(MCU_TARGET) -g$(DEBUG) $(OPTIMIZE)
+CFLAGS     += $(WARNING) $(INCDIRS) $(DEFS)
+LDFLAGS    += -mmcu=$(MCU_TARGET) -g$(DEBUG) -Wl,-Map,$(PROJECT).map
+
+CC         = avr-gcc
+OBJCOPY    = avr-objcopy
+OBJDUMP    = avr-objdump
+SIZE       = avr-size
+NM         = avr-nm
+
+
+all: clean $(PROJECT).elf lst text size
+
+$(PROJECT).elf: $(COBJ) $(AOBJ)
+	@echo
+	@echo Linking:
+	$(CC) $(LDFLAGS) $(LIBS) -o $@ $^
+
+
+version:
+	@$(CC) --version
+
+clean:
+	rm -rf *.o *.lst *.map $(PROJECT).elf *.eps *.bak *.a
+	rm -rf $(PROJECT).hex $(PROJECT).bin
+	rm -f -r .dep | exit 0
+
+size: $(PROJECT).elf
+	@echo
+	$(SIZE) -C --mcu=$(MCU_TARGET) $(PROJECT).elf
+
+lst:  $(PROJECT).lst
+%.lst: %.elf
+	@echo
+	$(OBJDUMP) -h -S $< > $@
+
+$(COBJ) : %.o : %.c
+	@echo
+	@echo $<:
+	$(CC) -c $(CFLAGS) $< -o $@
+
+$(AOBJ) : %.o : %.S
+	@echo
+	@echo $<:
+	$(CC) -c $(ASFLAGS) $< -o $@
+
+
+text: $(PROJECT).hex
+
+%.hex: %.elf
+	$(OBJCOPY) -j .text -j .data -j .fuse -O ihex $< $@
